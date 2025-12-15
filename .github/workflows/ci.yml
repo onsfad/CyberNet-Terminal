@@ -1,24 +1,44 @@
 ﻿name: CI/CD - CyberNet-Terminal
-
+# Trigger the workflow on push or pull request to main
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
-
+    env:
+      DOCKER_IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/CyberNet-Terminal:latest
     steps:
-    - uses: actions/checkout@v3
+      # Checkout the code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      # Install Java
+      - name: Set up JDK 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+      
+      # Compile Java code
+      - name: Compile Java
+        run: mvn compile
+      # Build Maven
+      - name: Build Java project with Maven
+        run: mvn clean package
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v3
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: maven
+      # Docker Login
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Build with Maven
-      run: mvn clean package
+      # Build and push Docker image
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_NAME }}
